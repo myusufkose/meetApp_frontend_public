@@ -36,7 +36,7 @@ MeetApp, React Native ve Expo kullanılarak geliştirilmiş modern bir mobil uyg
 
 1. Projeyi klonlayın:
 ```bash
-git clone [repository-url]
+git clone [https://github.com/myusufkose/meetApp_frontend_public.git]
 cd MeetApp
 ```
 
