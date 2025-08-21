@@ -33,7 +33,7 @@ const retry = async (fn, maxRetries = 5, delay = 500) => {
 };
 const api = axios.create({
   
-  baseURL: cleanUrl(API_URL),
+  baseURL: cleanUrl("https://mqrl5ddb-8000.euw.devtunnels.ms/"),
   timeout: 5000,  // 5 saniye
   headers: {
     'Content-Type': 'application/json',

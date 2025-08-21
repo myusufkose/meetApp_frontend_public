@@ -13,10 +13,12 @@ import ChatListScreen from './Screens/Chat/ChatListScreen';
 import ChatScreen from './Screens/Chat/ChatScreen';
 import NewChatScreen from './Screens/Chat/NewChatScreen';
 import { WebSocketProvider } from './Context/WebSocketContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  AsyncStorage.clear(); // Clear AsyncStorage for debugging purposes
   useEffect(() => {
     console.log('App.js - Component mounted');
   }, []);

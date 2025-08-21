@@ -3,6 +3,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Tema renkleri
 export const themes = {
+    lightBlue: {
+        name: 'Light Blue',
+        colors: {
+            primary: '#0066CC',          // Daha koyu ve canlı mavi
+            secondary: '#4DABF7',        // Daha canlı açık mavi
+            background: '#F8F9FA',       // Çok hafif gri arka plan
+            surface: '#E9ECEF',          // Biraz daha koyu gri yüzey
+            text: '#212529',             // Koyu gri metin
+            textSecondary: '#495057',    // Orta gri ikincil metin
+            border: '#DEE2E6',           // Açık gri kenarlıklar
+            error: '#DC3545',            // Canlı kırmızı
+            success: '#28A745',          // Canlı yeşil
+            warning: '#FFC107',          // Canlı sarı
+            inactive: '#ADB5BD',         // Orta gri pasif durumlar
+            card: '#FFFFFF',             // Beyaz kart
+            cardBorder: '#E9ECEF',       // Gri kart kenarlığı
+            shadow: 'rgba(0, 0, 0, 0.15)', // Daha belirgin gölge
+        }
+    },
     neonSpace: {
         name: 'Neon Space',
         colors: {
@@ -47,14 +66,25 @@ export const themes = {
 export const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-    const [currentTheme, setCurrentTheme] = useState(themes.darkNavy);
+    const [currentTheme, setCurrentTheme] = useState(themes.lightBlue);
 
     // Tema değiştirme fonksiyonu
     const changeTheme = async () => {
-        const newTheme = currentTheme === themes.neonSpace ? themes.darkNavy : themes.neonSpace;
+        let newTheme;
+        if (currentTheme === themes.lightBlue) {
+            newTheme = themes.neonSpace;
+        } else if (currentTheme === themes.neonSpace) {
+            newTheme = themes.darkNavy;
+        } else {
+            newTheme = themes.lightBlue;
+        }
+        
         setCurrentTheme(newTheme);
         try {
-            await AsyncStorage.setItem('selectedTheme', newTheme === themes.neonSpace ? 'neonSpace' : 'darkNavy');
+            await AsyncStorage.setItem('selectedTheme', 
+                newTheme === themes.lightBlue ? 'lightBlue' : 
+                newTheme === themes.neonSpace ? 'neonSpace' : 'darkNavy'
+            );
         } catch (error) {
             console.log('Tema kaydedilirken hata oluştu:', error);
         }
@@ -67,11 +97,11 @@ export const ThemeProvider = ({ children }) => {
             if (savedTheme && themes[savedTheme]) {
                 setCurrentTheme(themes[savedTheme]);
             } else {
-                setCurrentTheme(themes.darkNavy);
+                setCurrentTheme(themes.lightBlue);
             }
         } catch (error) {
             console.log('Tema yüklenirken hata oluştu:', error);
-            setCurrentTheme(themes.darkNavy);
+            setCurrentTheme(themes.lightBlue);
         }
     };
 

@@ -21,11 +21,9 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function ChatScreen({ route }) {
   const { theme } = useTheme();
-  const { ws, isConnected, messages, sendMessage, loadMessages, loading, typingStatus, typingUsers, handleTypingStatus } = useWebSocket();
+  const { ws, isConnected, messages, sendMessage, loadMessages, loading, handleTypingStatus, chats } = useWebSocket();
   const { user, token } = useContext(AuthContext);
   const [message, setMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const typingTimeoutRef = useRef(null);
   const flatListRef = useRef(null);
   const lastMessageRef = useRef(null);
   const isInitialLoadRef = useRef(true);
@@ -33,7 +31,11 @@ export default function ChatScreen({ route }) {
   const navigation = useNavigation();
 
   const { chatId, chatInfo, isNewChat, participants } = route.params;
-  const chat = chatInfo || {};
+  const chat = useMemo(() => {
+    const currentChat = chats.find(c => c.chat_id === chatId) || chatInfo || {};
+    console.log('Current chat:', currentChat);
+    return currentChat;
+  }, [chats, chatId, chatInfo]);
 
   // Mesajları memoize et ve sırala
   const currentMessages = useMemo(() => {
@@ -48,21 +50,9 @@ export default function ChatScreen({ route }) {
   // Header options'ı ayarla
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={{ marginLeft: 16 }}
-        >
-          <MaterialCommunityIcons 
-            name="arrow-left" 
-            size={24} 
-            color={theme.colors.text} 
-          />
-        </TouchableOpacity>
-      ),
-      headerTitle: chat.name || 'Sohbet',
+      headerShown: false
     });
-  }, [navigation, theme.colors.text, chat.name]);
+  }, [navigation]);
 
   // İlk yüklemede mesajları getir
   useEffect(() => {
@@ -81,39 +71,19 @@ export default function ChatScreen({ route }) {
 
   const handleMessageChange = useCallback((text) => {
     setMessage(text);
-    
-    // Önceki timeout'u temizle
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // 1.5 saniye sonra yazıyor bildirimi gönder
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(true);
-      handleTypingStatus(chatId, true);
-
-      // 1.5 saniye sonra yazmıyor bildirimi gönder
-      typingTimeoutRef.current = setTimeout(() => {
-        setIsTyping(false);
-        handleTypingStatus(chatId, false);
-      }, 1500);
-    }, 1500);
+    handleTypingStatus(chatId, text.length > 0);
   }, [chatId, handleTypingStatus]);
 
   const handleSend = useCallback(() => {
     if (message.trim() && isConnected) {
-      // Önce yazmıyor bildirimi gönder
-      setIsTyping(false);
-      handleTypingStatus(chatId, false);
-
-      // Sonra mesajı gönder
       sendMessage(chatId, message.trim());
       setMessage('');
+      handleTypingStatus(chatId, false);
     }
   }, [chatId, isConnected, message, sendMessage, handleTypingStatus]);
 
   const handleKeyPress = useCallback((event) => {
-    if (event.nativeEvent.key === 'Enter' && !event.nativeEvent.shiftKey) {
+    if (event.nativeEvent.key === 'Enter') {
       handleSend();
     }
   }, [handleSend]);
@@ -165,26 +135,6 @@ export default function ChatScreen({ route }) {
     );
   };
 
-  const renderTypingIndicator = () => {
-    const currentTypingUser = typingUsers[chatId];
-    if (!currentTypingUser || currentTypingUser === user?.user_id) {
-      return null;
-    }
-
-    const typingUserInfo = chat.participants_info?.find(p => p.user_id === currentTypingUser);
-    if (!typingUserInfo) {
-      return null;
-    }
-
-    return (
-      <View style={styles.typingIndicator}>
-        <Text style={[styles.typingText, { color: theme.colors.textSecondary }]}>
-          {typingUserInfo.full_name} yazıyor...
-        </Text>
-      </View>
-    );
-  };
-
   const scrollToBottom = useCallback(() => {
     if (flatListRef.current && currentMessages.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true });
@@ -196,12 +146,22 @@ export default function ChatScreen({ route }) {
     scrollToBottom();
   }, [currentMessages, scrollToBottom]);
 
-  // Yazıyor bildirimi geldiğinde de kaydır
-  useEffect(() => {
-    if (typingUsers[chatId]) {
-      scrollToBottom();
+  // Yazıyor durumunu göster
+  const renderTypingIndicator = () => {
+    console.log('Chat typing status:', chat.is_typing, chat.typing_user_id);
+    if (chat.is_typing && chat.typing_user_id && chat.typing_user_id !== user?.user_id) {
+      const typingUser = chat.participants_info?.find(p => p.user_id === chat.typing_user_id);
+      console.log('Typing user:', typingUser);
+      return (
+        <View style={styles.typingContainer}>
+          <Text style={styles.typingText}>
+            {typingUser?.full_name || 'Birisi'} yazıyor...
+          </Text>
+        </View>
+      );
     }
-  }, [typingUsers, chatId, scrollToBottom]);
+    return null;
+  };
 
   if (loading) {
     return (
@@ -213,6 +173,23 @@ export default function ChatScreen({ route }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <MaterialCommunityIcons 
+            name="arrow-left" 
+            size={24} 
+            color={theme.colors.text} 
+          />
+        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>
+            {chat.is_group ? chat.group_name : chat.participants_info?.find(p => p.user_id !== user?.user_id)?.full_name || 'Sohbet'}
+          </Text>
+        </View>
+      </View>
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -243,8 +220,8 @@ export default function ChatScreen({ route }) {
             onKeyPress={handleKeyPress}
             placeholder="Mesajınızı yazın..."
             placeholderTextColor={theme.colors.textSecondary}
-            multiline
             maxLength={1000}
+            blurOnSubmit={false}
           />
           <TouchableOpacity 
             style={[
@@ -270,6 +247,33 @@ const createStyles = (theme) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 56,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    paddingHorizontal: 16,
+    position: 'relative',
+  },
+  backButton: {
+    padding: 8,
+    position: 'absolute',
+    left: 8,
+    zIndex: 1,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text,
+    textAlign: 'center',
   },
   container: {
     flex: 1,
@@ -367,16 +371,13 @@ const createStyles = (theme) => StyleSheet.create({
   messageStatus: {
     marginLeft: 4,
   },
-  typingIndicator: {
+  typingContainer: {
     padding: 8,
-    marginHorizontal: 12,
-    marginVertical: 4,
-    borderRadius: 8,
-    backgroundColor: theme.colors.surface,
-    alignSelf: 'flex-start',
+    marginTop: 4,
   },
   typingText: {
-    fontSize: 12,
+    fontSize: 14,
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
 }); 

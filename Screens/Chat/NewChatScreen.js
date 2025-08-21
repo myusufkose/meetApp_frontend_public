@@ -29,8 +29,18 @@ export default function NewChatScreen({ navigation }) {
   const [isGroup, setIsGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const { user } = useContext(AuthContext);
-  const { createChat, chats } = useWebSocket();
+  const { createChat, chats, handleTypingStatus } = useWebSocket();
   const styles = createStyles(theme);
+
+  // Yazma bildirimi gönderme fonksiyonu
+  const handleTyping = useCallback(
+    debounce((text) => {
+      if (selectedUsers.length === 1) {
+        handleTypingStatus(selectedUsers[0].user_id, text.length > 0);
+      }
+    }, 300),
+    [selectedUsers, handleTypingStatus]
+  );
 
   const searchUsers = useCallback(
     debounce(async (query) => {
@@ -63,6 +73,7 @@ export default function NewChatScreen({ navigation }) {
   const handleSearch = (text) => {
     setSearchQuery(text);
     searchUsers(text);
+    handleTyping(text); // Yazma bildirimi gönder
   };
 
   const checkExistingChat = (userId) => {
